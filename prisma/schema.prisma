@@ -1,0 +1,385 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+  COURIER
+}
+
+enum MenuCategory {
+  NASI
+  LAUK
+  BAKSO
+  SOTO
+  AYAM
+  MIE
+  MINUMAN
+  SNACK
+  OTHER
+}
+
+enum OrderStatus {
+  ORDERED
+  PAYMENT_PENDING // Menunggu upload/verifikasi bukti bayar
+  PROCESSED
+  ON_DELIVERY
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryMethod {
+  DIANTAR
+  AMBIL_SENDIRI
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED // Admin sudah cek bukti transfer
+  PAID
+  HANDED_OVER // Kurir sudah serahkan cash ke kasir
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  QRIS
+  GOPAY
+  SHOPEEPAY
+  OVO
+  DANA
+  TRANSFER
+}
+
+enum PermissionAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  MANAGE // Full CRUD access
+}
+
+enum PermissionResource {
+  MENU
+  ORDER
+  CUSTOMER
+  COURIER
+  PAYMENT
+  ANALYTICS
+  SETTINGS
+  PROMO
+  REVIEW
+  NOTIFICATION
+  PRIVILEGE
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String?        @unique
+  password      String?        // For admin authentication
+  role          Role           @default(CUSTOMER)
+  phone         String         @unique
+  address       String?
+  avatar        String?        // Profile picture URL
+  memberSince   DateTime       @default(now()) // Untuk tracking member benefits
+  totalOrders   Int            @default(0) // Total completed orders
+  orders        Order[]        @relation("CustomerOrders")
+  reviews       Review[]
+  notifications Notification[]
+  addresses     Address[]
+  favorites     Favorite[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Courier {
+  id            String   @id @default(uuid())
+  name          String
+  phone         String   @unique
+  vehicle       String?  // Jenis kendaraan (Motor/Mobil)
+  vehicleNumber String?  @map("vehicle_number") // Plat nomor
+  address       String?
+  idCard        String?  @map("id_card") // Nomor KTP
+  isActive      Boolean  @default(true)
+  orders        Order[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("couriers")
+}
+
+model Menu {
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal      @db.Decimal(10, 2)
+  category    MenuCategory
+  images      String[] // Array of image URLs
+  isAvailable Boolean      @default(true)
+  stock       Int?
+  prepTime    Int? // in minutes
+  spicyLevel  Int          @default(0) // 0-5
+  isPopular   Boolean      @default(false)
+  orderCount  Int          @default(0)
+  items       OrderItem[]
+  reviews     Review[]
+  favorites   Favorite[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([category])
+  @@index([isAvailable])
+}
+
+model Order {
+  id             String         @id @default(uuid())
+  orderNumber    String         @unique
+  customer       User           @relation("CustomerOrders", fields: [customerId], references: [id])
+  customerId     String
+  courier        Courier?       @relation(fields: [courierId], references: [id])
+  courierId      String?
+  items          OrderItem[]
+  status         OrderStatus    @default(ORDERED)
+  deliveryMethod DeliveryMethod
+  address        String?
+  notes          String?
+  isMember       Boolean        @default(false) // Member saat order (untuk tracking)
+  subtotal       Decimal        @db.Decimal(10, 2)
+  deliveryFee    Decimal        @db.Decimal(10, 2) @default(0)
+  discount       Decimal        @db.Decimal(10, 2) @default(0)
+  totalPrice     Decimal        @db.Decimal(10, 2)
+  promoCode      String?
+  estimatedTime  DateTime?
+  completedAt    DateTime?
+  payment        Payment?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id       String  @id @default(uuid())
+  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId  String
+  menu     Menu    @relation(fields: [menuId], references: [id])
+  menuId   String
+  quantity Int
+  price    Decimal @db.Decimal(10, 2) // Price snapshot at order time
+  subtotal Decimal @db.Decimal(10, 2)
+  notes    String? // Special requests for this item
+
+  @@index([orderId])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String        @unique
+  status          PaymentStatus @default(PENDING)
+  amount          Decimal       @db.Decimal(10, 2)
+  method          PaymentMethod
+  transactionId   String?       @unique
+  paymentProofUrl String?
+  proofImage      String? // URL bukti transfer dari customer
+  verifiedAt      DateTime? // Kapan admin verifikasi
+  verifiedBy      String? // Admin yang verifikasi (user ID)
+  courierHandedAt DateTime? // Kapan kurir serahkan cash
+  courierHandedBy String? // Kurir yang serahkan (courier ID)
+  notes           String? // Catatan pembayaran
+  paidAt          DateTime?
+  expiredAt       DateTime?
+  metadata        Json? // For payment gateway response
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status])
+  @@index([transactionId])
+}
+
+// Additional models for Phase 1
+
+model Review {
+  id         String   @id @default(uuid())
+  menuId     String
+  userId     String
+  orderId    String? // Link to order for verified purchases
+  rating     Int // 1-5
+  comment    String?
+  images     String[] // Array of image URLs
+  isVerified Boolean  @default(false) // Verified purchase
+  adminReply String? // Admin response to review
+  menu       Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([orderId, menuId, userId]) // One review per menu per order
+  @@index([menuId])
+  @@index([userId])
+  @@index([rating])
+}
+
+enum NotificationType {
+  NEW_ORDER
+  ORDER_STATUS
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PROMO
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String?
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  label      String // "Rumah", "Kantor", "Apartemen", etc.
+  recipientName String
+  recipientPhone String
+  address    String
+  district   String? // Kecamatan
+  city       String? // Kota/Kabupaten
+  province   String?
+  postalCode String?
+  notes      String? // Patokan, warna pagar, dll
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isDefault])
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  menu      Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menuId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, menuId])
+  @@index([userId])
+  @@index([menuId])
+}
+
+model Settings {
+  id              String   @id @default("default")
+  storeName       String   @default("Warung Enin")
+  storeAddress    String   @default("Taraju, Kabupaten Tasikmalaya")
+  storePhone      String   @default("08xxxxxxxxxx")
+  storeLogo       String?
+  storeEmail      String?
+  deliveryRadius  Float    @default(5) // dalam km
+  deliveryFee     Float    @default(5000)
+  minOrder        Float    @default(15000)
+  taxPercentage   Float    @default(0)
+  serviceCharge   Float    @default(0)
+  whatsappNumber  String?
+  whatsappEnabled Boolean  @default(false)
+  isOpen          Boolean  @default(true)
+  openingHour     String   @default("08:00")
+  closingHour     String   @default("21:00")
+  gmapsUrl        String?
+  instagramUrl    String?
+  facebookUrl     String?
+  updatedAt       DateTime @updatedAt
+}
+
+model HeroSlide {
+  id          String   @id @default(uuid())
+  title       String
+  subtitle    String?
+  description String?
+  imageUrl    String
+  buttonText  String?  @default("Pesan Sekarang")
+  buttonLink  String?  @default("/reservation")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+  @@map("hero_slides")
+}
+
+enum PromoType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_DELIVERY
+}
+
+model Promo {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  name            String
+  description     String?
+  type            PromoType
+  value           Decimal   @db.Decimal(10, 2) // Percentage (0-100) or Fixed amount
+  minPurchase     Decimal   @db.Decimal(10, 2) @default(0)
+  maxDiscount     Decimal?  @db.Decimal(10, 2) // Max discount for percentage type
+  usageLimit      Int?      // Total usage limit
+  usageCount      Int       @default(0)
+  perUserLimit    Int       @default(1) // Usage limit per user
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+model Permission {
+  id         String             @id @default(uuid())
+  role       Role
+  resource   PermissionResource
+  action     PermissionAction
+  allowed    Boolean            @default(true)
+  conditions Json? // For conditional permissions (e.g., {"ownOnly": true})
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@unique([role, resource, action])
+  @@index([role])
+  @@index([resource])
+  @@map("permissions")
+}
