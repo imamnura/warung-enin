@@ -24,7 +24,7 @@ interface Permission {
   resource: string;
   action: string;
   allowed: boolean;
-  conditions: Record<string, unknown> | null;
+  conditions: any;
 }
 
 interface PrivilegeManagementProps {
@@ -219,9 +219,8 @@ export function PrivilegeManagement({
                       className="bg-white"
                     >
                       <RefreshCw
-                        className={`w-4 h-4 mr-2 ${
-                          isResetting ? "animate-spin" : ""
-                        }`}
+                        className={`w-4 h-4 mr-2 ${isResetting ? "animate-spin" : ""
+                          }`}
                       />
                       Reset Default
                     </Button>

@@ -6,10 +6,6 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ShoppingBag,
-  BookOpen,
-  Search,
-  Star,
-  Users,
   Utensils,
   ChevronLeft,
   ChevronRight,
@@ -253,11 +249,10 @@ export function HeroSection({ slides }: HeroSectionProps) {
             <button
               key={index}
               onClick={() => goToSlide(index)}
-              className={`h-2 rounded-full transition-all ${
-                index === currentSlide
+              className={`h-2 rounded-full transition-all ${index === currentSlide
                   ? "w-8 bg-white"
                   : "w-2 bg-white/50 hover:bg-white/75"
-              }`}
+                }`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}

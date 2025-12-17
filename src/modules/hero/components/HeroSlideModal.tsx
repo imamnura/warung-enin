@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import Image from "next/image";
 import { Button } from "@/shared/ui/Button";
 import { X, Upload, Link as LinkIcon, Image as ImageIcon } from "lucide-react";
 import { createHeroSlide, updateHeroSlide } from "@/modules/hero/actions";
@@ -180,11 +181,10 @@ export function HeroSlideModal({
               <button
                 type="button"
                 onClick={() => setInputMode("url")}
-                className={`flex-1 px-4 py-2 rounded-lg border transition-colors flex items-center justify-center gap-2 ${
-                  inputMode === "url"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg border transition-colors flex items-center justify-center gap-2 ${inputMode === "url"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-gray-300 hover:border-gray-400"
+                  }`}
               >
                 <LinkIcon className="w-4 h-4" />
                 Link URL
@@ -192,11 +192,10 @@ export function HeroSlideModal({
               <button
                 type="button"
                 onClick={() => setInputMode("upload")}
-                className={`flex-1 px-4 py-2 rounded-lg border transition-colors flex items-center justify-center gap-2 ${
-                  inputMode === "upload"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg border transition-colors flex items-center justify-center gap-2 ${inputMode === "upload"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-gray-300 hover:border-gray-400"
+                  }`}
               >
                 <Upload className="w-4 h-4" />
                 Upload File
@@ -266,10 +265,12 @@ export function HeroSlideModal({
                   Preview:
                 </p>
                 <div className="relative aspect-[3/1] rounded-lg overflow-hidden border border-gray-200">
-                  <img
+                  <Image
                     src={previewUrl}
                     alt="Preview"
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    unoptimized
                     onError={() => {
                       toast.error("Gagal memuat preview gambar");
                       setPreviewUrl("");
@@ -351,10 +352,10 @@ export function HeroSlideModal({
               {isSubmitting
                 ? "Menyimpan..."
                 : isUploading
-                ? "Mengupload..."
-                : slide
-                ? "Update"
-                : "Simpan"}
+                  ? "Mengupload..."
+                  : slide
+                    ? "Update"
+                    : "Simpan"}
             </Button>
           </div>
         </form>

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { MenuCategory } from "@/generated/prisma";
+import { MenuCategory } from "@/generated/prisma/enums";
 
 export async function getMenus() {
   return prisma.menu.findMany({

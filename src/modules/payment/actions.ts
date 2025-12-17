@@ -273,7 +273,7 @@ export async function uploadPaymentProof(orderId: string, imageBase64: string) {
 
     try {
       await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
+    } catch {
       // Directory might already exist
     }
 

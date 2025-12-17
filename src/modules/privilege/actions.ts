@@ -9,6 +9,7 @@ import type {
   PermissionResource,
   PermissionAction,
 } from "@/generated/prisma/enums";
+import { Prisma } from "@/generated/prisma/client";
 
 interface UpdatePermissionInput {
   id: string;
@@ -26,7 +27,7 @@ export async function getAllPermissionsAction() {
       return { error: "Unauthorized" };
     }
 
-    await requirePermission(session.user.role as any, "PRIVILEGE", "READ");
+    await requirePermission(session.user.role as Role, "PRIVILEGE", "READ");
 
     const permissions = await prisma.permission.findMany({
       orderBy: [{ role: "asc" }, { resource: "asc" }, { action: "asc" }],
@@ -59,13 +60,13 @@ export async function updatePermissionAction(input: UpdatePermissionInput) {
       return { error: "Unauthorized" };
     }
 
-    await requirePermission(session.user.role as any, "PRIVILEGE", "UPDATE");
+    await requirePermission(session.user.role as Role, "PRIVILEGE", "UPDATE");
 
     const permission = await prisma.permission.update({
       where: { id: input.id },
       data: {
         allowed: input.allowed,
-        conditions: input.conditions ? (input.conditions as any) : null,
+        conditions: input.conditions ? (input.conditions as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
     });
 
@@ -93,7 +94,7 @@ export async function resetRolePermissionsAction(
       return { error: "Unauthorized" };
     }
 
-    await requirePermission(session.user.role as any, "PRIVILEGE", "MANAGE");
+    await requirePermission(session.user.role as Role, "PRIVILEGE", "MANAGE");
 
     // Delete existing permissions for the role
     await prisma.permission.deleteMany({
@@ -104,7 +105,7 @@ export async function resetRolePermissionsAction(
     const defaultPermissions = getDefaultPermissions(role);
 
     await prisma.permission.createMany({
-      data: defaultPermissions as any,
+      data: defaultPermissions as Prisma.PermissionCreateManyInput[],
     });
 
     revalidatePath("/dashboard/privileges");
